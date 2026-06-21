@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Card, calculateEquity, getHandCombos, Suit, RANGE_PRESETS } from '@/utils/poker-logic';
 import HandGrid from '@/components/poker/HandGrid';
 import CardPicker from '@/components/poker/CardPicker';
-import ActionFilter from '@/components/poker/ActionFilter';
+import ActionFilter, { PokerAction } from '@/components/poker/ActionFilter';
 import RangeStats from '@/components/poker/RangeStats';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -19,6 +19,14 @@ const Index = () => {
   const [equityMap, setEquityMap] = useState<Record<string, number>>({});
   const [isCalculating, setIsCalculating] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  
+  // Track actions per street
+  const [actions, setActions] = useState<Record<string, PokerAction | undefined>>({
+    Preflop: undefined,
+    Flop: undefined,
+    Turn: undefined,
+    River: undefined
+  });
 
   const allCombos = useMemo(() => getHandCombos(), []);
 
@@ -45,31 +53,61 @@ const Index = () => {
     }
   };
 
-  const filterRange = (percentage: number, type: 'top' | 'bottom') => {
-    const sortedCombos = [...allCombos];
-    const count = Math.floor((percentage / 100) * sortedCombos.length);
+  const handleAction = (street: string, action: PokerAction) => {
+    if (action === 'Reset') {
+      setActions(prev => ({ ...prev, [street]: undefined }));
+      return;
+    }
+
+    setActions(prev => ({ ...prev, [street]: action }));
+
+    // Logic to filter range based on action
+    // This is a heuristic: in a real solver, this would be based on GTO frequencies
+    const currentRangeArray = Array.from(selectedRange).length > 0 
+      ? Array.from(selectedRange) 
+      : allCombos;
+
+    let percentage = 100;
+    let type: 'top' | 'bottom' = 'top';
+
+    switch (action) {
+      case 'Raise': 
+        percentage = 15; 
+        type = 'top'; 
+        break;
+      case 'Bet': 
+        percentage = 40; 
+        type = 'top'; 
+        break;
+      case 'Call': 
+        percentage = 50; 
+        type = 'top'; // Simplified: usually "Call" is a capped range, but here we'll take top 50%
+        break;
+      case 'Check': 
+        percentage = 70; 
+        type = 'bottom'; // Check usually removes the very top of the range
+        break;
+    }
+
+    const count = Math.floor((percentage / 100) * currentRangeArray.length);
     let newRange: string[];
-    if (type === 'top') newRange = sortedCombos.slice(0, count);
-    else newRange = sortedCombos.slice(sortedCombos.length - count);
+    if (type === 'top') newRange = currentRangeArray.slice(0, count);
+    else newRange = currentRangeArray.slice(currentRangeArray.length - count);
+    
     setSelectedRange(new Set(newRange));
-    showSuccess(`Range filtered to ${type} ${percentage}%`);
+    showSuccess(`${street} ${action}: Range narrowed to ${newRange.length} combos`);
   };
 
   const runCalculation = async () => {
     if (heroHand.length < 2 || selectedRange.size === 0) return;
-    
     setIsCalculating(true);
     
-    // Run main equity
     const result = calculateEquity(heroHand, Array.from(selectedRange), board);
     setEquity(result);
 
-    // Run heatmap calculation (simplified for performance)
     if (showHeatmap) {
       const newEquityMap: Record<string, number> = {};
       const rangeArray = Array.from(selectedRange);
-      
-      // We only calculate for a subset if range is huge to keep UI responsive
       for (const hand of rangeArray) {
         newEquityMap[hand] = calculateEquity(heroHand, [hand], board, 50);
       }
@@ -81,6 +119,7 @@ const Index = () => {
 
   const applyPreset = (name: string) => {
     setSelectedRange(new Set(RANGE_PRESETS[name]));
+    setActions({ Preflop: undefined, Flop: undefined, Turn: undefined, River: undefined });
     showSuccess(`Applied ${name} preset`);
   };
 
@@ -90,6 +129,7 @@ const Index = () => {
     setSelectedRange(new Set());
     setEquity(null);
     setEquityMap({});
+    setActions({ Preflop: undefined, Flop: undefined, Turn: undefined, River: undefined });
   };
 
   const getSuitSymbol = (suit: Suit) => {
@@ -211,9 +251,17 @@ const Index = () => {
 
             {/* Action Filters */}
             <div className="space-y-4">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-2">Action Logic</h3>
-              <ActionFilter street="Preflop" onFilter={filterRange} />
-              <ActionFilter street="Flop" onFilter={filterRange} />
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-2">Opponent Actions</h3>
+              <ActionFilter 
+                street="Preflop" 
+                activeAction={actions.Preflop} 
+                onAction={(a) => handleAction('Preflop', a)} 
+              />
+              <ActionFilter 
+                street="Flop" 
+                activeAction={actions.Flop} 
+                onAction={(a) => handleAction('Flop', a)} 
+              />
             </div>
           </div>
 
@@ -293,7 +341,7 @@ const Index = () => {
                 <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
                   <Info size={18} className="text-indigo-500 mt-0.5 shrink-0" />
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    <strong>Pro Tip:</strong> Use the "Heatmap" toggle to see which hands in the opponent's range have the most equity against your specific hand on the current board. Green hands are winning, red hands are losing.
+                    <strong>How it works:</strong> Select an action (Check, Bet, Raise) to simulate how the opponent's range narrows. For example, clicking <strong>Raise</strong> will filter the current range to only the top 15% of hands.
                   </p>
                 </div>
               </CardContent>
