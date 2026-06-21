@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Card as ShadCard, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Calculator, User, Users, Layers, RotateCcw, Plus, Flame, Info } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
@@ -20,7 +21,6 @@ const Index = () => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
   
-  // Track actions per street
   const [actions, setActions] = useState<Record<string, PokerAction | undefined>>({
     Preflop: undefined,
     Flop: undefined,
@@ -61,8 +61,6 @@ const Index = () => {
 
     setActions(prev => ({ ...prev, [street]: action }));
 
-    // Logic to filter range based on action
-    // This is a heuristic: in a real solver, this would be based on GTO frequencies
     const currentRangeArray = Array.from(selectedRange).length > 0 
       ? Array.from(selectedRange) 
       : allCombos;
@@ -81,11 +79,11 @@ const Index = () => {
         break;
       case 'Call': 
         percentage = 50; 
-        type = 'top'; // Simplified: usually "Call" is a capped range, but here we'll take top 50%
+        type = 'top';
         break;
       case 'Check': 
         percentage = 70; 
-        type = 'bottom'; // Check usually removes the very top of the range
+        type = 'bottom';
         break;
     }
 
@@ -153,7 +151,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-4xl font-black tracking-tight text-slate-900 flex items-center gap-3">
@@ -177,9 +174,7 @@ const Index = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Inputs */}
           <div className="lg:col-span-4 space-y-6">
-            {/* Hero Hand */}
             <ShadCard className="border-none shadow-xl bg-white overflow-hidden rounded-3xl">
               <CardHeader className="bg-slate-900 text-white pb-8">
                 <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2 opacity-80">
@@ -214,7 +209,6 @@ const Index = () => {
               </CardContent>
             </ShadCard>
 
-            {/* Board */}
             <ShadCard className="border-none shadow-xl bg-white overflow-hidden rounded-3xl">
               <CardHeader className="bg-indigo-600 text-white pb-8">
                 <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2 opacity-80">
@@ -249,7 +243,6 @@ const Index = () => {
               </CardContent>
             </ShadCard>
 
-            {/* Action Filters */}
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-2">Opponent Actions</h3>
               <ActionFilter 
@@ -265,9 +258,7 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Right Column: Range & Results */}
           <div className="lg:col-span-8 space-y-6">
-            {/* Equity Result */}
             {equity !== null && (
               <div className="bg-white p-8 rounded-3xl shadow-2xl border border-indigo-100 animate-in fade-in slide-in-from-top-4 duration-500">
                 <div className="flex items-end justify-between mb-4">
@@ -285,7 +276,6 @@ const Index = () => {
               </div>
             )}
 
-            {/* Range Grid */}
             <ShadCard className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
               <CardHeader className="border-b border-slate-50 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -321,19 +311,21 @@ const Index = () => {
                     <RangeStats selectedRange={selectedRange} />
                     <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                       <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-3">Presets</p>
-                      <div className="flex flex-col gap-2">
-                        {Object.keys(RANGE_PRESETS).map(name => (
-                          <Button 
-                            key={name} 
-                            variant="secondary" 
-                            size="sm" 
-                            className="justify-start text-[10px] font-bold bg-white hover:bg-indigo-600 hover:text-white transition-colors"
-                            onClick={() => applyPreset(name)}
-                          >
-                            {name}
-                          </Button>
-                        ))}
-                      </div>
+                      <ScrollArea className="h-[200px] pr-4">
+                        <div className="flex flex-col gap-2">
+                          {Object.keys(RANGE_PRESETS).map(name => (
+                            <Button 
+                              key={name} 
+                              variant="secondary" 
+                              size="sm" 
+                              className="justify-start text-[10px] font-bold bg-white hover:bg-indigo-600 hover:text-white transition-colors"
+                              onClick={() => applyPreset(name)}
+                            >
+                              {name}
+                            </Button>
+                          ))}
+                        </div>
+                      </ScrollArea>
                     </div>
                   </div>
                 </div>
