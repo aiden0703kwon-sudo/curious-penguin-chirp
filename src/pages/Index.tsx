@@ -245,16 +245,30 @@ const Index = () => {
 
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-2">Opponent Actions</h3>
-              <ActionFilter 
-                street="Preflop" 
-                activeAction={actions.Preflop} 
-                onAction={(a) => handleAction('Preflop', a)} 
-              />
-              <ActionFilter 
-                street="Flop" 
-                activeAction={actions.Flop} 
-                onAction={(a) => handleAction('Flop', a)} 
-              />
+              <ScrollArea className="h-[400px] pr-4">
+                <div className="space-y-4">
+                  <ActionFilter 
+                    street="Preflop" 
+                    activeAction={actions.Preflop} 
+                    onAction={(a) => handleAction('Preflop', a)} 
+                  />
+                  <ActionFilter 
+                    street="Flop" 
+                    activeAction={actions.Flop} 
+                    onAction={(a) => handleAction('Flop', a)} 
+                  />
+                  <ActionFilter 
+                    street="Turn" 
+                    activeAction={actions.Turn} 
+                    onAction={(a) => handleAction('Turn', a)} 
+                  />
+                  <ActionFilter 
+                    street="River" 
+                    activeAction={actions.River} 
+                    onAction={(a) => handleAction('River', a)} 
+                  />
+                </div>
+              </ScrollArea>
             </div>
           </div>
 
