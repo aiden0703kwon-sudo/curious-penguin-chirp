@@ -9,6 +9,10 @@ export interface Card {
 export const RANKS: Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
 export const SUITS: Suit[] = ['s', 'h', 'd', 'c'];
 
+const RANK_VALUE: Record<Rank, number> = {
+  '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 'T': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14
+};
+
 export const cardToString = (card: Card) => `${card.rank}${card.suit}`;
 
 export const getAllCards = (): Card[] => {
@@ -21,15 +25,15 @@ export const getAllCards = (): Card[] => {
   return cards;
 };
 
-// Simplified hand strength for Monte Carlo (0 to 1)
-// In a real app, we'd use a full 7-card evaluator. 
-// For this demo, we'll use a heuristic-based evaluator for performance.
+// Improved hand evaluation
 export const evaluateHandStrength = (hand: Card[], board: Card[]): number => {
   const allCards = [...hand, ...board];
   if (allCards.length < 5) return 0.5;
 
   const rankCounts: Record<string, number> = {};
   const suitCounts: Record<string, number> = {};
+  const values = allCards.map(c => RANK_VALUE[c.rank]).sort((a, b) => b - a);
+  const uniqueValues = Array.from(new Set(values));
   
   allCards.forEach(c => {
     rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1;
@@ -37,23 +41,39 @@ export const evaluateHandStrength = (hand: Card[], board: Card[]): number => {
   });
 
   const hasFlush = Object.values(suitCounts).some(count => count >= 5);
+  
+  // Straight detection
+  let hasStraight = false;
+  for (let i = 0; i <= uniqueValues.length - 5; i++) {
+    if (uniqueValues[i] - uniqueValues[i + 4] === 4) {
+      hasStraight = true;
+      break;
+    }
+  }
+  // Wheel straight (A-2-3-4-5)
+  if (!hasStraight && uniqueValues.includes(14) && uniqueValues.includes(2) && uniqueValues.includes(3) && uniqueValues.includes(4) && uniqueValues.includes(5)) {
+    hasStraight = true;
+  }
+
   const counts = Object.values(rankCounts).sort((a, b) => b - a);
   
-  if (hasFlush) return 0.8;
-  if (counts[0] === 4) return 0.9;
-  if (counts[0] === 3 && counts[1] >= 2) return 0.75;
-  if (counts[0] === 3) return 0.5;
-  if (counts[0] === 2 && counts[1] >= 2) return 0.4;
-  if (counts[0] === 2) return 0.2;
+  if (hasFlush && hasStraight) return 0.95; // Straight Flush
+  if (counts[0] === 4) return 0.9; // Quads
+  if (counts[0] === 3 && counts[1] >= 2) return 0.85; // Full House
+  if (hasFlush) return 0.8; // Flush
+  if (hasStraight) return 0.75; // Straight
+  if (counts[0] === 3) return 0.6; // Trips
+  if (counts[0] === 2 && counts[1] >= 2) return 0.4; // Two Pair
+  if (counts[0] === 2) return 0.2; // Pair
   
-  return 0.1;
+  return 0.1 + (values[0] / 100); // High Card
 };
 
 export const calculateEquity = (
   heroHand: Card[],
-  villainRange: string[], // e.g. ["AA", "AKs", "72o"]
+  villainRange: string[],
   board: Card[],
-  iterations: number = 500
+  iterations: number = 400
 ): number => {
   if (heroHand.length < 2 || villainRange.length === 0) return 0;
 
@@ -64,13 +84,11 @@ export const calculateEquity = (
   );
 
   for (let i = 0; i < iterations; i++) {
-    // 1. Pick a random hand from villain range
     const randomVillainCombo = villainRange[Math.floor(Math.random() * villainRange.length)];
-    // Simplified: convert combo string to actual cards (ignoring specific suits for range speed)
+    // Simplified combo to cards conversion
     const v1 = deck[Math.floor(Math.random() * deck.length)];
     const v2 = deck.filter(c => c !== v1)[Math.floor(Math.random() * (deck.length - 1))];
     
-    // 2. Complete the board if needed
     const remainingBoardCount = 5 - board.length;
     const simBoard = [...board];
     const simDeck = deck.filter(c => c !== v1 && c !== v2);
@@ -100,4 +118,10 @@ export const getHandCombos = () => {
     }
   }
   return combos;
+};
+
+export const RANGE_PRESETS: Record<string, string[]> = {
+  'UTG (15%)': ['AA', 'KK', 'QQ', 'JJ', 'TT', '99', '88', '77', 'AKs', 'AQs', 'AJs', 'ATs', 'KQs', 'KJs', 'QJs', 'JTs', 'AKo', 'AQo'],
+  'BTN (45%)': ['AA', 'KK', 'QQ', 'JJ', 'TT', '99', '88', '77', '66', '55', '44', '33', '22', 'AKs', 'AQs', 'AJs', 'ATs', 'A9s', 'A8s', 'A7s', 'A6s', 'A5s', 'A4s', 'A3s', 'A2s', 'KQs', 'KJs', 'KTs', 'K9s', 'K8s', 'QJs', 'QTs', 'Q9s', 'JTs', 'J9s', 'T9s', '98s', '87s', '76s', '65s', '54s', 'AKo', 'AQo', 'AJo', 'ATo', 'A9o', 'KQo', 'KJo', 'KTo', 'QJo', 'QTo', 'JTo'],
+  'SB (35%)': ['AA', 'KK', 'QQ', 'JJ', 'TT', '99', '88', '77', '66', '55', '44', 'AKs', 'AQs', 'AJs', 'ATs', 'A9s', 'A8s', 'A7s', 'A6s', 'A5s', 'KQs', 'KJs', 'KTs', 'K9s', 'QJs', 'QTs', 'Q9s', 'JTs', 'J9s', 'T9s', '98s', '87s', '76s', 'AKo', 'AQo', 'AJo', 'ATo', 'A9o', 'KQo', 'KJo', 'KTo', 'QJo', 'QTo', 'JTo']
 };

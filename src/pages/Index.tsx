@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Card, calculateEquity, getHandCombos, Suit } from '@/utils/poker-logic';
+import React, { useState, useMemo } from 'react';
+import { Card, calculateEquity, getHandCombos, Suit, RANGE_PRESETS } from '@/utils/poker-logic';
 import HandGrid from '@/components/poker/HandGrid';
 import CardPicker from '@/components/poker/CardPicker';
 import ActionFilter from '@/components/poker/ActionFilter';
+import RangeStats from '@/components/poker/RangeStats';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Card as ShadCard, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Calculator, User, Users, Layers, RotateCcw, Plus } from 'lucide-react';
+import { Calculator, User, Users, Layers, RotateCcw, Plus, Flame, Info } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
 const Index = () => {
@@ -15,7 +16,9 @@ const Index = () => {
   const [board, setBoard] = useState<Card[]>([]);
   const [selectedRange, setSelectedRange] = useState<Set<string>>(new Set());
   const [equity, setEquity] = useState<number | null>(null);
+  const [equityMap, setEquityMap] = useState<Record<string, number>>({});
   const [isCalculating, setIsCalculating] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   const allCombos = useMemo(() => getHandCombos(), []);
 
@@ -43,30 +46,42 @@ const Index = () => {
   };
 
   const filterRange = (percentage: number, type: 'top' | 'bottom') => {
-    const sortedCombos = [...allCombos]; // In a real app, we'd sort by raw equity
+    const sortedCombos = [...allCombos];
     const count = Math.floor((percentage / 100) * sortedCombos.length);
-    
     let newRange: string[];
-    if (type === 'top') {
-      newRange = sortedCombos.slice(0, count);
-    } else {
-      newRange = sortedCombos.slice(sortedCombos.length - count);
-    }
-    
+    if (type === 'top') newRange = sortedCombos.slice(0, count);
+    else newRange = sortedCombos.slice(sortedCombos.length - count);
     setSelectedRange(new Set(newRange));
     showSuccess(`Range filtered to ${type} ${percentage}%`);
   };
 
-  const runCalculation = () => {
+  const runCalculation = async () => {
     if (heroHand.length < 2 || selectedRange.size === 0) return;
     
     setIsCalculating(true);
-    // Small timeout to allow UI to show loading state
-    setTimeout(() => {
-      const result = calculateEquity(heroHand, Array.from(selectedRange), board);
-      setEquity(result);
-      setIsCalculating(false);
-    }, 100);
+    
+    // Run main equity
+    const result = calculateEquity(heroHand, Array.from(selectedRange), board);
+    setEquity(result);
+
+    // Run heatmap calculation (simplified for performance)
+    if (showHeatmap) {
+      const newEquityMap: Record<string, number> = {};
+      const rangeArray = Array.from(selectedRange);
+      
+      // We only calculate for a subset if range is huge to keep UI responsive
+      for (const hand of rangeArray) {
+        newEquityMap[hand] = calculateEquity(heroHand, [hand], board, 50);
+      }
+      setEquityMap(newEquityMap);
+    }
+
+    setIsCalculating(false);
+  };
+
+  const applyPreset = (name: string) => {
+    setSelectedRange(new Set(RANGE_PRESETS[name]));
+    showSuccess(`Applied ${name} preset`);
   };
 
   const reset = () => {
@@ -74,6 +89,7 @@ const Index = () => {
     setBoard([]);
     setSelectedRange(new Set());
     setEquity(null);
+    setEquityMap({});
   };
 
   const getSuitSymbol = (suit: Suit) => {
@@ -227,26 +243,58 @@ const Index = () => {
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <Users size={20} className="text-indigo-600" /> Opponent Range
                 </CardTitle>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedRange(new Set(allCombos))} className="text-xs">Select All</Button>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedRange(new Set())} className="text-xs">Clear</Button>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                    <Flame size={14} className={showHeatmap ? "text-orange-500" : "text-slate-300"} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Heatmap</span>
+                    <input 
+                      type="checkbox" 
+                      checked={showHeatmap} 
+                      onChange={(e) => setShowHeatmap(e.target.checked)}
+                      className="w-3 h-3 accent-indigo-600"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedRange(new Set(allCombos))} className="text-xs">All</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedRange(new Set())} className="text-xs">Clear</Button>
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
-                <HandGrid selectedRange={selectedRange} onToggleHand={toggleHandInRange} />
-                <div className="mt-6 flex flex-wrap gap-2">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest w-full mb-2">Quick Presets</p>
-                  {['10', '25', '50', '75'].map(p => (
-                    <Button 
-                      key={p} 
-                      variant="outline" 
-                      size="sm" 
-                      className="rounded-full text-xs border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
-                      onClick={() => filterRange(parseInt(p), 'top')}
-                    >
-                      Top {p}%
-                    </Button>
-                  ))}
+              <CardContent className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="md:col-span-3">
+                    <HandGrid 
+                      selectedRange={selectedRange} 
+                      onToggleHand={toggleHandInRange} 
+                      equityMap={showHeatmap ? equityMap : undefined}
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <RangeStats selectedRange={selectedRange} />
+                    <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                      <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-3">Presets</p>
+                      <div className="flex flex-col gap-2">
+                        {Object.keys(RANGE_PRESETS).map(name => (
+                          <Button 
+                            key={name} 
+                            variant="secondary" 
+                            size="sm" 
+                            className="justify-start text-[10px] font-bold bg-white hover:bg-indigo-600 hover:text-white transition-colors"
+                            onClick={() => applyPreset(name)}
+                          >
+                            {name}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                  <Info size={18} className="text-indigo-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    <strong>Pro Tip:</strong> Use the "Heatmap" toggle to see which hands in the opponent's range have the most equity against your specific hand on the current board. Green hands are winning, red hands are losing.
+                  </p>
                 </div>
               </CardContent>
             </ShadCard>
