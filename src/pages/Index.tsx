@@ -22,7 +22,6 @@ const Index = () => {
   const [showHeatmap, setShowHeatmap] = useState(false);
   
   const [actions, setActions] = useState<Record<string, PokerAction | undefined>>({
-    Preflop: undefined,
     Flop: undefined,
     Turn: undefined,
     River: undefined
@@ -117,7 +116,7 @@ const Index = () => {
 
   const applyPreset = (name: string) => {
     setSelectedRange(new Set(RANGE_PRESETS[name]));
-    setActions({ Preflop: undefined, Flop: undefined, Turn: undefined, River: undefined });
+    setActions({ Flop: undefined, Turn: undefined, River: undefined });
     showSuccess(`Applied ${name} preset`);
   };
 
@@ -127,7 +126,7 @@ const Index = () => {
     setSelectedRange(new Set());
     setEquity(null);
     setEquityMap({});
-    setActions({ Preflop: undefined, Flop: undefined, Turn: undefined, River: undefined });
+    setActions({ Flop: undefined, Turn: undefined, River: undefined });
   };
 
   const getSuitSymbol = (suit: Suit) => {
@@ -248,11 +247,6 @@ const Index = () => {
               <ScrollArea className="h-[400px] pr-4">
                 <div className="space-y-4">
                   <ActionFilter 
-                    street="Preflop" 
-                    activeAction={actions.Preflop} 
-                    onAction={(a) => handleAction('Preflop', a)} 
-                  />
-                  <ActionFilter 
                     street="Flop" 
                     activeAction={actions.Flop} 
                     onAction={(a) => handleAction('Flop', a)} 
@@ -347,7 +341,7 @@ const Index = () => {
                 <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
                   <Info size={18} className="text-indigo-500 mt-0.5 shrink-0" />
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    <strong>How it works:</strong> Select an action (Check, Bet, Raise) to simulate how the opponent's range narrows. For example, clicking <strong>Raise</strong> will filter the current range to only the top 15% of hands.
+                    <strong>How it works:</strong> Select a starting range from the <strong>Presets</strong> (e.g., BTN Open). Then, use the <strong>Opponent Actions</strong> to simulate how their range narrows on the Flop, Turn, and River.
                   </p>
                 </div>
               </CardContent>
